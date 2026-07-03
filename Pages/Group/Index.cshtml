@@ -1,0 +1,1066 @@
+﻿@page "{id:long}"
+@model personal_attendanse_system.Pages.Group.IndexModel
+@{
+    ViewData["Title"] = "Group page";
+}
+<div class="container mt-5">
+    <div id="statusMessagePlaceholder">
+        @if (!string.IsNullOrEmpty(Model.StatusMessage))
+        {
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                @Model.StatusMessage
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+    </div>
+
+    @if (Model.Group == null)
+    {
+        <div class="alert alert-danger" role="alert">
+            Group not found or you are not authorized to access it.
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between">
+            <h1 class="p-2 mt-2 mb-4 me-auto align-middle align-items-center">@Model.Group.name @if (!Model.Group.isPublic){<span class="text-muted ms-3 fs-5">(Private)</span>}else{<span class="text-muted ms-3 fs-5">(Public)</span>}</h1>
+            <div class="p-2 mt-2">
+                @if(Model.IsAdmin || Model.IsStaff != null)
+                {
+                    <button type="button" class="btn btn-primary btn-block mb-1 w-100" data-bs-toggle="modal" data-bs-target="#NewLinkModal">
+                        New Link
+                    </button>
+                    <button type="button" class="btn btn-success btn-block mb-1 w-100" data-bs-toggle="modal" data-bs-target="#liveAttendeesModal">
+                        View Live Attendees
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-primary btn-block mb-1 w-100" data-bs-toggle="modal" data-bs-target="#ScanQRCodeModal">
+                        Scan QR Code
+                    </button>
+                }
+            </div>
+        </div>
+        
+        @if(Model.IsAdmin || Model.IsStaff != null)
+        {
+            <div class="mt-4" id="scheduled-links-container" style="@(Model.RecurringTasks != null && Model.RecurringTasks.Any() ? "" : "display: none;")">
+                
+                <hr />
+                
+                <h2>All Scheduled Links</h2>
+                <div class="row">
+                    @if (Model.RecurringTasks != null && Model.RecurringTasks.Any())
+                    {
+                        foreach (var task in Model.RecurringTasks)
+                        {
+                            <div class="col-md-4 mb-4" id="scheduled-task-@task.Id">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <h4 class="card-title mb-2">@task.Name</h4>
+                                        <h6 class="card-subtitle mb-2 text-muted">Days: @task.DaysOfWeek.Replace(",", ", ")</h6>
+                                        <h6 class="card-subtitle mb-2 text-muted">Starts At: @task.StartTime.ToLocalTime().ToString("hh:mm tt")</h6>
+                                        <h6 class="card-subtitle mb-2 text-muted">Ends At: @task.EndTime.ToLocalTime().ToString("hh:mm tt")</h6>
+                                        <div class="my-3">
+                                            <button class="btn btn-sm btn-danger delete-scheduled-link-btn" data-task-id="@task.Id">
+                                                <i class="bi bi-trash-fill"></i> Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <hr />
+
+            <div class="mt-4">
+                <h2>All Links</h2>
+                <div id="link-container" class="row">
+                    @if (Model.Links != null && Model.Links.Any())
+                    {
+                        foreach (var link in Model.Links.OrderByDescending(l => l.creationDate))
+                        {
+                            <div class="col-md-4 mb-4" id="link-card-@link.Id">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <h4 class="card-title mb-2">@link.Name</h4>
+                                        <h6 class="card-subtitle mb-2 text-muted">Created: <span data-utc-time="@link.creationDate.ToLocalTime().ToString("o")"></span></h6>
+                                        <h6 class="card-subtitle mb-2 text-muted">Expires: <span data-utc-time="@link.expirationDate.ToLocalTime().ToString("o")"></span></h6>
+                                        <p class="card-text">
+                                            <strong>Status:</strong>
+                                            @{
+                                                var now = DateTime.UtcNow;
+                                                var statusClass = "bg-danger";
+                                                var statusText = "Expired";
+                                                if (now >= link.activetionDate && now <= link.expirationDate)
+                                                {
+                                                    statusClass = "bg-success";
+                                                    statusText = "Active";
+                                                }
+                                                else if (now < link.activetionDate)
+                                                {
+                                                    statusClass = "bg-warning text-dark";
+                                                    statusText = "Not Active";
+                                                }
+                                            }
+                                            <span class="badge @statusClass">@statusText</span>
+                                        </p>
+                                        
+                                        <div class="my-3">
+                                            @if (DateTime.UtcNow >= link.activetionDate && DateTime.UtcNow <= link.expirationDate)
+                                            {
+                                                <a asp-page="/Group/Scanner" asp-route-linkUrl="@link.LinkURL" class="btn btn-warning btn-sm mb-1">
+                                                    <i class="bi bi-qr-code-scan"></i> Scan Attendance
+                                                </a>
+                                                
+                                                <a href="#"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#qrCodeModal"
+                                                    data-qr-src="data:image/png;base64,@Model.QRCodeCache[link.Id]"
+                                                    data-expiration-date="@link.expirationDate.ToLocalTime().ToString("o")"
+                                                    data-link-url="@Url.PageLink("/Attend", null, new { linkUrl = link.LinkURL })"
+                                                    data-link-id="@link.Id"
+                                                    class="btn btn-info btn-sm mb-1">
+                                                    View QR Code
+                                                </a>
+                                            }
+                                            <a asp-page="/Group/Attendees" asp-route-linkId="@link.Id" class="btn btn-primary btn-sm mb-1">
+                                                View Attendants
+                                            </a>
+                                            <button type="button" class="btn btn-danger btn-sm mb-1 delete-link-btn" data-link-id="@link.Id">
+                                                Delete Link
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted" id="no-links-message">No links have been created yet.</p>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <h3>My Attendance Status</h3>
+            <p class="lead">View your attendance history for this group.</p>
+
+            <form method="get">
+                <div class="d-flex mb-3 gap-3">
+                    <div class="form-group flex-grow-1">
+                        <label for="filter" class="form-label">Filter:</label>
+                        <select class="form-select" name="filter" onchange="this.form.submit()">
+                            <option value="all" selected="@(Model.Filter == "all")">All Links</option>
+                            <option value="attended" selected="@(Model.Filter == "attended")">Attended Links</option>
+                            <option value="notAttended" selected="@(Model.Filter == "notAttended")">Not Attended Links</option>
+                        </select>
+                    </div>
+                    <div class="form-group flex-grow-1">
+                        <label for="sortOrder" class="form-label">Sort by Date:</label>
+                        <select class="form-select" name="sortOrder" onchange="this.form.submit()">
+                            <option value="desc" selected="@(Model.SortOrder == "desc")">Newest First</option>
+                            <option value="asc" selected="@(Model.SortOrder == "asc")">Oldest First</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+
+            <h3 class="mt-4">Links</h3>
+            <ul class="list-group">
+                @foreach (var link in Model.Links)
+                {
+                    @if (link.activetionDate > DateTime.UtcNow)
+                    {
+                        continue;
+                    }
+
+                    <li class="list-group-item @(link.Attendees.Any(a => a.LinkId == link.Id) ? "list-group-item-success" : "list-group-item-danger")">
+                        @if(link.Name != string.Empty){
+                            <div>Link Name: <strong>@link.Name</strong></div>
+                        }
+                        Link Active: <strong>@link.activetionDate.ToLocalTime().ToString("g")</strong>
+                        <br />
+                        Expires: <strong>@link.expirationDate.ToLocalTime().ToString("g")</strong>
+                        <br />
+                        Status:
+                        @if (link.Attendees.Any(a => a.LinkId == link.Id))
+                        {
+                            <strong>You have attended this link.</strong>
+                        }
+                        else
+                        {
+                            <strong>You have not attended this link.</strong>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    }
+</div>
+
+<div id="qrCodeModal" class="modal fade" tabindex="-1" aria-labelledby="qrCodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qrCodeModalLabel">QR Code</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalQRCode" src="" alt="QR Code" class="img-fluid" />
+                <div id="countdown" class="mt-3 fs-5 fw-bold text-muted"></div>
+                <div class="mt-3 d-flex justify-content-center gap-2">
+                    <button id="copyLinkBtn" class="btn btn-outline-primary btn-sm">Copy Link</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="liveAttendeesModal" class="modal fade" tabindex="-1" aria-labelledby="liveAttendeesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="liveAttendeesModalLabel">Real-Time Active Link Attendees</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <small class="text-muted">Updates every 10 seconds. Shows attendees who registered via currently active links only.</small>
+                <hr />
+                <p class="text-muted" id="noLiveAttendeesMessage">No live attendees registered yet via active links.</p>
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm table-striped table-hover" id="liveAttendeesTable" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>User Name</th>
+                                <th>Attendance Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @* Content will be populated by JavaScript *@
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="NewLinkModal" class="modal fade" tabindex="-1" aria-labelledby="NewLinkModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="NewLinkModalLabel">Generate New Attendance Link</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="onetime-tab" data-bs-toggle="tab" data-bs-target="#onetime" type="button" role="tab" aria-controls="onetime" aria-selected="true">One-Time Link</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="scheduled-tab" data-bs-toggle="tab" data-bs-target="#scheduled" type="button" role="tab" aria-controls="scheduled" aria-selected="false">Scheduled Link</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="myTabContent">
+                    <div class="tab-pane fade show active" id="onetime" role="tabpanel" aria-labelledby="onetime-tab">
+                        <form id="generateLinkForm" class="mt-3">
+                            <input type="hidden" name="Id" value="@Model.Id" />
+                            <div class="mb-3">
+                                <label for="LinkName" class="form-label">Link Name (Optional)</label>
+                                <input type="text" class="form-control" name="linkName" />
+                            </div>
+                            <div class="mb-3">
+                                <label for="LinkActivationDate" class="form-label">Link Activation Date</label>
+                                <input type="datetime-local" class="form-control" name="activationDate" value="@DateTime.UtcNow.ToLocalTime().ToString("yyyy-MM-ddTHH:mm")" required />
+                            </div>
+                            <div class="mb-3">
+                                <label for="LinkExpirationDate" class="form-label">Link Expiration Date</label>
+                                <input type="datetime-local" class="form-control" name="expirationDate" required />
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="canAttendThroughUserScan" name="canAttendThroughUserScan" value="true" checked="checked">
+                                <label class="form-check-label" for="canAttendThroughUserScan">Can be attend through user scan</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="canAttendThroughStaffScan" name="canAttendThroughStaffScan" value="true" checked="checked">
+                                <label class="form-check-label" for="canAttendThroughStaffScan">Can attend through staff scan</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="canAttendThroughMachineScan" name="canAttendThroughMachineScan" value="true" checked="checked">
+                                <label class="form-check-label" for="canAttendThroughMachineScan">Can attend through machine scan</label>
+                            </div>
+                            @if(Model.IsStaff?.canCreateLink == true || Model.IsAdmin){
+                                <button type="submit" class="btn btn-success">Generate One-Time Link</button>
+                            }else{
+                                <button type="submit" disabled class="btn btn-success">Generate One-Time Link</button>
+                            }
+                        </form>
+                    </div>
+                    <div class="tab-pane fade" id="scheduled" role="tabpanel" aria-labelledby="scheduled-tab">
+                        <form id="createScheduledLinkForm" class="mt-3">
+                            <input type="hidden" name="Id" value="@Model.Id" />
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Task Name</label>
+                                <input type="text" class="form-control" name="Name" required />
+                            </div>
+                            <div class="mb-3">
+                                <label for="days" class="form-label">Days of the Week</label>
+                                <div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" name="Days" value="Sunday" />
+                                        <label class="form-check-label">Sun</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" name="Days" value="Monday" />
+                                        <label class="form-check-label">Mon</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" name="Days" value="Tuesday" />
+                                        <label class="form-check-label">Tue</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" name="Days" value="Wednesday" />
+                                        <label class="form-check-label">Wed</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" name="Days" value="Thursday" />
+                                        <label class="form-check-label">Thu</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" name="Days" value="Friday" />
+                                        <label class="form-check-label">Fri</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" name="Days" value="Saturday" />
+                                        <label class="form-check-label">Sat</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="start" class="form-label">Start Time</label>
+                                <input type="time" class="form-control" name="startTime" required />
+                            </div>
+                            <div class="mb-3">
+                                <label for="end" class="form-label">End Time</label>
+                                <input type="time" class="form-control" name="endTime" required />
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="canAttendThroughUserScan" name="canAttendThroughUserScan" value="true" checked="checked">
+                                <label class="form-check-label" for="canAttendThroughUserScan">Can be attend through user scan</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="canAttendThroughStaffScan" name="canAttendThroughStaffScan" value="true" checked="checked">
+                                <label class="form-check-label" for="canAttendThroughStaffScan">Can attend through staff scan</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="canAttendThroughMachineScan" name="canAttendThroughMachineScan" value="true" checked="checked">
+                                <label class="form-check-label" for="canAttendThroughMachineScan">Can attend through machine scan</label>
+                            </div>
+                            @if(Model.IsStaff?.canCreateScheduledLink == true || Model.IsAdmin)
+                            {
+                                <button type="submit" class="btn btn-primary">Create Scheduled Link</button>
+                            }
+                            else
+                            {
+                                <button type="submit" disabled class="btn btn-primary">Create Scheduled Link</button>
+                            }
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .responsive-scanner-container {
+        width: 100%;
+        max-width: 600px; /* Set a max-width for desktop view */
+        margin: 0 auto; /* Center the container on larger screens */
+    }
+
+    /* Target the video element inside the reader */
+    #reader video {
+        width: 100% !important;
+        height: auto !important;
+    }
+</style>
+
+<div id="ScanQRCodeModal" class="modal fade" tabindex="-1" aria-labelledby="ScanQRCodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="ScanQRCodeModalLabel">Scan QR Code</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="card shadow-sm">
+                    <div class="card-body text-center">
+                        <p class="lead" id="statusMessage">Please scan a user's QR code.</p>
+                        <div class="responsive-scanner-container">
+                            <div id="reader"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        let countdownInterval;
+        let qrCodeModal = document.getElementById('qrCodeModal');
+        let liveAttendeesModal = document.getElementById('liveAttendeesModal');
+        let scanQRCodeModal = document.getElementById('ScanQRCodeModal'); // Reference the scanner modal
+        let html5QrCode; // Declare a variable to hold the scanner instance
+
+        function convertUtcToLocalTime() {
+            document.querySelectorAll('[data-utc-time]').forEach(element => {
+                const utcTimeString = element.getAttribute('data-utc-time');
+                if (utcTimeString) {
+                    const date = new Date(utcTimeString);
+                    element.textContent = date.toLocaleString();
+                }
+            });
+        }
+
+        qrCodeModal.addEventListener('show.bs.modal', function (event) {
+            let button = event.relatedTarget;
+            let qrCodeSrc = button.getAttribute('data-qr-src');
+            let expirationDateUtc = button.getAttribute('data-expiration-date');
+            let linkUrl = button.getAttribute('data-link-url');
+            let linkId = button.getAttribute('data-link-id');
+
+            let modalImage = qrCodeModal.querySelector('#modalQRCode');
+            let countdownElement = qrCodeModal.querySelector('#countdown');
+            let copyBtn = qrCodeModal.querySelector('#copyLinkBtn');
+            
+            clearInterval(countdownInterval);
+            modalImage.src = qrCodeSrc;
+            
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(linkUrl).then(() => {
+                    copyBtn.textContent = "Copied!";
+                    setTimeout(() => copyBtn.textContent = "Copy Link", 2000);
+                }).catch(err => {
+                    console.error("Failed to copy link: ", err);
+                });
+            };
+
+            if (expirationDateUtc) {
+                const expirationDate = new Date(expirationDateUtc);
+                countdownInterval = setInterval(() => {
+                    const now = new Date();
+                    const diff = expirationDate - now;
+
+                    if (diff <= 0) {
+                        countdownElement.textContent = 'Expired!';
+                        clearInterval(countdownInterval);
+                        modalImage.style.filter = 'grayscale(100%)';
+                        return;
+                    }
+
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                    countdownElement.textContent = `Expires in: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+                }, 1000);
+            } else {
+                countdownElement.textContent = 'No expiration date.';
+            }
+        });
+
+        qrCodeModal.addEventListener('hidden.bs.modal', function () {
+            clearInterval(countdownInterval);
+            qrCodeModal.querySelector('#modalQRCode').style.filter = '';
+        });
+        
+        // Fetch live attendees for admin view
+        var groupId = @Model.Id;
+        async function fetchLiveAttendees() {
+            try {
+                const response = await fetch(`?handler=LiveAttendees&id=${groupId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const attendees = await response.json();
+
+                const tableBody = document.querySelector('#liveAttendeesTable tbody');
+                const table = document.getElementById('liveAttendeesTable');
+                const noLiveAttendeesMessage = document.getElementById('noLiveAttendeesMessage');
+
+                if (attendees.length === 0) {
+                    table.style.display = 'none';
+                    noLiveAttendeesMessage.style.display = 'block';
+                } else {
+                    table.style.display = 'table';
+                    noLiveAttendeesMessage.style.display = 'none';
+                    tableBody.innerHTML = '';
+                    attendees.forEach(attendee => {
+                        const row = tableBody.insertRow();
+                        const userNameCell = row.insertCell(0);
+                        const dateCell = row.insertCell(1);
+
+                        userNameCell.textContent = attendee.userName;
+                        dateCell.textContent = new Date(attendee.attendanceDate).toLocaleString();
+                    });
+                }
+            } catch (error) {
+                console.error("Error fetching live attendees:", error);
+            }
+        }
+
+        @if (Model.IsAdmin || Model.IsStaff != null)
+        {
+            <text>
+                liveAttendeesModal.addEventListener('show.bs.modal', function() {
+                    fetchLiveAttendees(); // Fetch immediately when modal is shown
+                    setInterval(fetchLiveAttendees, 10000); // Start interval
+                });
+                liveAttendeesModal.addEventListener('hidden.bs.modal', function() {
+                    clearInterval(liveAttendeesModal.dataset.intervalId); // Clear interval when modal is closed
+                });
+            </text>
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            convertUtcToLocalTime();
+        });
+    </script>
+
+    <script src="~/js/lib/html5-qrcode.min.js"></script>
+    <script>
+        let scannedCodes = new Set();
+        let statusMessage = document.getElementById('statusMessage');
+
+        // Get the screen width to make the QR box responsive
+        const screenWidth = window.innerWidth;
+        let qrBoxSize = 250; // Default size for larger screens
+
+        // Adjust the size for smaller screens
+        if (screenWidth < 768) { // 768px is a common breakpoint for mobile devices
+            qrBoxSize = Math.floor(screenWidth * 0.7); // Use 70% of the screen width
+        }
+
+        const qrCodeConfig = {
+            fps: 10,
+            qrbox: { width: qrBoxSize, height: qrBoxSize },
+            supportedScanFormats: [Html5QrcodeSupportedFormats.QR_CODE]
+        };
+        
+        // Function to start the scanner
+        function startScanner() {
+            // First, stop any existing scanner instance to ensure a clean state
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().catch(err => console.error("Error stopping scanner:", err));
+            }
+    
+            // Now, create a new instance if it doesn't exist, or just use the existing one
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+
+
+            html5QrCode.start({ facingMode: "environment" }, qrCodeConfig,
+                    (decodedText, decodedResult) => {
+                        // Success callback
+                        if (scannedCodes.has(decodedText)) {
+                            return;
+                        }
+
+                        const url = new URL(decodedText);
+                        const linkUrl = url.searchParams.get('linkUrl');
+
+                        if (!linkUrl) {
+                            statusMessage.textContent = 'Invalid QR code. Link URL not found.';
+                            statusMessage.className = 'text-danger lead';
+                            scannedCodes.delete(decodedText);
+                            return;
+                        }
+                        scannedCodes.add(decodedText);
+                        
+                        statusMessage.textContent = 'Scanning...';
+
+                        // Make an AJAX call to a new endpoint specifically for the web scanner
+                        fetch('@Url.PageLink("/Group/Index", "ScanFromWeb")', {
+                            method: 'POST',
+                            headers: {
+                                'RequestVerificationToken': document.getElementsByName("__RequestVerificationToken")[0].value,
+                                'Content-Type': 'application/json'
+                            },
+                                body: JSON.stringify({
+                                linkUrl: linkUrl,
+                                groupId: @Model.Id // Send the group ID as well for context
+                            })
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                // If the server response is not successful,
+                                // read the response body as text to get the error message
+                                return response.text().then(text => {
+                                    throw new Error(`Server error: ${text || response.statusText}`);
+                                });
+                            }
+                            return response.json()
+                        })
+                        .then(data => {
+                            //statusMessage.textContent = data.message;
+                            if (data.success) {
+                                // Stop the scanner, close the modal, and refresh the page
+                                stopScanner();
+                                const modalElement = document.getElementById('ScanQRCodeModal');
+                                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                                modalInstance.hide();
+                                window.location.reload(); 
+                            } else {
+                                // Handle failure by displaying the error message from the server
+                                statusMessage.textContent = "You have already attended this session.";
+                                statusMessage.className = 'text-danger lead';
+                                /* 
+                                setTimeout(() => {
+                                    statusMessage.textContent = 'Please scan a user\'s QR code.';
+                                    statusMessage.className = 'lead';
+                                }, 3000);
+                                */
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            statusMessage.textContent = 'An error occurred. Please try again.';
+                            statusMessage.className = 'text-danger lead';
+                            scannedCodes.delete(decodedText);
+                        });
+                    },
+                    (errorMessage) => {
+                        // Error callback (optional)
+                    })
+                    .catch((err) => {
+                        // Start failed, handle it
+                        statusMessage.textContent = `Camera access error: ${err}`;
+                        statusMessage.className = 'text-danger lead';
+                        console.error("Camera start failed.", err);
+                    });
+            
+        }
+        
+        // Function to stop the scanner
+        function stopScanner() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().catch(err => console.error("Error stopping scanner:", err));
+            }
+        }
+
+        // Event listener for when the modal is shown
+        scanQRCodeModal.addEventListener('show.bs.modal', function () {
+            
+            console.log("calling startScanner()")
+            startScanner();
+        });
+
+        // Event listener for when the modal is hidden
+        scanQRCodeModal.addEventListener('hidden.bs.modal', function () {
+            console.log("calling stopScanner()")
+            stopScanner();
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Helper function to show a status message
+            function showStatusMessage(message, isSuccess) {
+                console.log('Displaying status message:', message, 'Success:', isSuccess);
+                const placeholder = document.getElementById('statusMessagePlaceholder');
+                const alertClass = isSuccess ? 'alert-success' : 'alert-danger';
+                const alertHtml = `
+                    <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
+                placeholder.innerHTML = alertHtml;
+                setTimeout(() => {
+                    const alert = placeholder.querySelector('.alert');
+                    if (alert) {
+                        alert.classList.remove('show');
+                        alert.classList.add('fade');
+                        alert.remove();
+                    }
+                }, 5000);
+            }
+
+            function createLinkCardHtml(link) {
+                // Get current time to determine link status
+                const now = new Date();
+                const creationDate = new Date(link.creationDate);
+                const activationDate = new Date(link.activetionDate);
+                const expirationDate = new Date(link.expirationDate);
+                let statusText, statusClass, actionButtonsHtml;
+            
+                // Determine the status and corresponding class and text
+                if (now >= activationDate && now <= expirationDate) {
+                    statusClass = "bg-success";
+                    statusText = "Active";
+                    // Buttons for an active link
+                    actionButtonsHtml = `
+                        <a href="/Group/Scanner/${link.linkUrl}" class="btn btn-warning btn-sm mb-1">
+                            <i class="bi bi-qr-code-scan"></i> Scan Attendance
+                        </a>`;
+                    if (link.qrCode) { // Check if qrCode exists before adding the button
+                        actionButtonsHtml += `
+                        <a href="#"
+                            data-bs-toggle="modal"
+                            data-bs-target="#qrCodeModal"
+                            data-qr-src="data:image/png;base64,${link.qrCode}"
+                            data-expiration-date="${expirationDate}"
+                            data-link-url="/Attend/${link.linkUrl}"
+                            data-link-id="${link.id}"
+                            class="btn btn-info btn-sm mb-1">
+                            View QR Code
+                        </a>`;
+                    }
+                } else if (now < activationDate) {
+                    statusClass = "bg-warning text-dark";
+                    statusText = "Not Active";
+                    actionButtonsHtml = ''; // No action buttons if not active
+                } else {
+                    statusClass = "bg-danger";
+                    statusText = "Expired";
+                    actionButtonsHtml = ''; // No action buttons if expired
+                }
+                // Make sure creationDate and expirationDate are Date objects
+                var creationDateLocal = creationDate.toLocaleString();
+                var expirationDateLocal = expirationDate.toLocaleString();
+
+                // The toISOString() method is correct for data attributes, as they should be machine-readable
+                var creationDateISO = creationDate.toISOString();
+                var expirationDateISO = expirationDate.toISOString();
+
+                // Full HTML string for the card
+                const linkCardHtml = `
+                    <div class="col-md-4 mb-4" id="link-card-${link.id}">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h4 class="card-title mb-2">${link.name}</h4>
+                                <h6 class="card-subtitle mb-2 text-muted">Created: <span data-utc-time="${creationDateISO}">${creationDateLocal}</span></h6>
+                                <h6 class="card-subtitle mb-2 text-muted">Expires: <span data-utc-time="${expirationDateISO}">${expirationDateLocal}</span></h6>
+                                <p class="card-text">
+                                    <strong>Status:</strong>
+                                    <span class="badge ${statusClass}">${statusText}</span>
+                                </p>
+                                <div class="my-3">
+                                    ${actionButtonsHtml}
+                                    <a href="/Group/Attendees/${link.id}" class="btn btn-primary btn-sm mb-1">
+                                        View Attendants
+                                    </a>
+                                    <button type="button" class="btn btn-danger btn-sm mb-1 delete-link-btn" data-link-id="${link.id}">
+                                        Delete Link
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+
+                return linkCardHtml;
+            
+            }
+            
+            function createScheduledTaskCardHtml(task) {
+                // Format the days string by replacing commas with ", " for better readability
+                const daysString = task.daysOfWeek.replace(',', ", ");
+            
+                // Convert times to a local, user-friendly format (e.g., "09:00 AM")
+                const startTime = new Date(`${task.startTime}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const endTime = new Date(`${task.endTime}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                //2025-09-15T15:28:00Z
+                const cardHtml = `
+                    <div class="col-md-4 mb-4" id="scheduled-task-${task.id}">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h4 class="card-title mb-2">${task.name}</h4>
+                                <h6 class="card-subtitle mb-2 text-muted">Days: ${daysString}</h6>
+                                <h6 class="card-subtitle mb-2 text-muted">Starts At: ${startTime}</h6>
+                                <h6 class="card-subtitle mb-2 text-muted">Ends At: ${endTime}</h6>
+                                <div class="my-3">
+                                    <button class="btn btn-sm btn-danger delete-scheduled-link-btn" data-task-id="${task.id}">
+                                        <i class="bi bi-trash-fill"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            
+                return cardHtml;
+            }
+
+            // Functions to handle form submissions (for both one-time and scheduled links)
+            async function handleScheduledLinksFormSubmission(event, handlerName, containerId) {
+                event.preventDefault();
+                const form = event.target;
+                
+                // Manually construct the data object to ensure correct casing
+                //Delete button clicked for scheduled task ID:
+                const data = {
+                    name: form.querySelector('input[name="Name"]').value,
+                    startTime: form.querySelector('input[name="startTime"]').value,
+                    endTime: form.querySelector('input[name="endTime"]').value,
+                    days: Array.from(form.querySelectorAll('input[name="Days"]:checked')).map(cb => cb.value),
+                    canAttendThroughUserScan: form.querySelector('input[name="canAttendThroughUserScan"]').checked,
+                    canAttendThroughStaffScan: form.querySelector('input[name="canAttendThroughStaffScan"]').checked,
+                    canAttendThroughMachineScan: form.querySelector('input[name="canAttendThroughMachineScan"]').checked,
+                };
+            
+                console.log(`Submitting form to handler: ${handlerName} with data:`, data);
+            
+                try {
+                    const response = await fetch(`?handler=${handlerName}&id=${@Model.Id}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                        },
+                        body: JSON.stringify(data)
+                    });
+            
+                    console.log(`Fetch response for ${handlerName} received. Status: ${response.status}`);
+            
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(`Fetch failed with status not OK. Server message: ${errorText}`);
+                        throw new Error(`Server returned status: ${response.status}, message: ${errorText}`);
+                    }
+            
+                    const result = await response.json();
+                    console.log('JSON result:', result);
+            
+                    if (result.success) {
+                        showStatusMessage(result.message, true);
+                        if (result.task) { 
+                            const container = document.getElementById('scheduled-links-container');
+                            const newTaskCardHtml = createScheduledTaskCardHtml(result.task);
+
+                            // Make the container visible if it was hidden
+                            container.style.display = ''; 
+                            
+                            // Find the 'row' div inside the container to add the new card
+                            const rowContainer = container.querySelector('.row');
+
+                            // Add the new link card to the container
+                            rowContainer.insertAdjacentHTML('afterbegin', newTaskCardHtml);
+                        }
+                    } else {
+                        showStatusMessage(result.message, false);
+                    }
+                    
+                    const modal = bootstrap.Modal.getInstance(form.closest('.modal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+            
+                } catch (error) {
+                    showStatusMessage("An error occurred. Please try again.", false);
+                    console.error(`Error in handleFormSubmission for ${handlerName}:`, error);
+                }
+            }
+            
+            async function handleLinksFormSubmission(event, handlerName, containerId) {
+                event.preventDefault();
+                const form = event.target;
+                
+                // Manually construct the data object for the one-time link form
+                const data = {
+                    linkName: form.querySelector('input[name="linkName"]').value,
+                    activationDate: form.querySelector('input[name="activationDate"]').value,
+                    expirationDate: form.querySelector('input[name="expirationDate"]').value,
+                    canAttendThroughUserScan: form.querySelector('input[name="canAttendThroughUserScan"]').checked,
+                    canAttendThroughStaffScan: form.querySelector('input[name="canAttendThroughStaffScan"]').checked,
+                    canAttendThroughMachineScan: form.querySelector('input[name="canAttendThroughMachineScan"]').checked,
+                };
+            
+                console.log(`Submitting one-time link form to handler: ${handlerName} with data:`, data);
+            
+                try {
+                    const response = await fetch(`?handler=${handlerName}&id=${@Model.Id}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                        },
+                        body: JSON.stringify(data)
+                    });
+            
+                    console.log(`Fetch response for ${handlerName} received. Status: ${response.status}`);
+            
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(`Fetch failed with status not OK. Server message: ${errorText}`);
+                        throw new Error(`Server returned status: ${response.status}, message: ${errorText}`);
+                    }
+            
+                    const result = await response.json();
+                    console.log('JSON result:', result);
+            
+                    if (result.success) {
+                        showStatusMessage(result.message, true);
+                        // Check if the response includes link data
+                        if (result.link) {
+                            const container = document.getElementById(containerId);
+                            const newLinkCardHtml = createLinkCardHtml(result.link);
+                            container.insertAdjacentHTML('afterbegin', newLinkCardHtml);
+                            const noLinksMessage = document.getElementById('no-links-message');
+                            if (noLinksMessage) {
+                                noLinksMessage.style.display = 'none';
+                            }
+                        }
+                    } else {
+                        showStatusMessage(result.message, false);
+                    }
+                    
+                    const modal = bootstrap.Modal.getInstance(form.closest('.modal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+            
+                } catch (error) {
+                    showStatusMessage("An error occurred. Please try again.", false);
+                    console.error(`Error in handleFormSubmission for ${handlerName}:`, error);
+                }
+            }
+            
+            
+            // Event listener for generating a one-time link
+            const generateLinkForm = document.getElementById('generateLinkForm');
+            if (generateLinkForm) {
+                generateLinkForm.addEventListener('submit', (e) => handleLinksFormSubmission(e, 'GenerateLink', 'link-container'));
+            }
+    
+            // Event listener for creating a scheduled link
+            const createScheduledLinkForm = document.getElementById('createScheduledLinkForm');
+            if (createScheduledLinkForm) {
+                createScheduledLinkForm.addEventListener('submit', (e) => handleScheduledLinksFormSubmission(e, 'CreateScheduledLink', 'scheduled-links-container'));
+            }
+    
+            // Event listener for deleting a link
+            document.getElementById('link-container').addEventListener('click', async function (event) {
+                if (event.target.classList.contains('delete-link-btn')) {
+                    const button = event.target;
+                    const linkId = button.dataset.linkId;
+                    console.log('Delete button clicked for linkId:', linkId);
+                    if (confirm('Are you sure you want to delete this link?')) {
+                        try {
+                            const response = await fetch(`?handler=DeleteLink&id=${@Model.Id}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                                },
+                                body: JSON.stringify({ linkId: linkId })
+                            });
+                            console.log('Delete response received. Status:', response.status);
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                console.error('Delete failed with status not OK. Server message:', errorText);
+                                throw new Error(`Server returned status: ${response.status}, message: ${errorText}`);
+                            }
+                            const result = await response.json();
+                            console.log('Delete JSON result:', result);
+                            if (result.success) {
+                                showStatusMessage(result.message, true);
+
+                                // Find the link card element and remove it
+                                const linkCard = document.getElementById(`link-card-${linkId}`);
+                                if (linkCard) {
+                                    linkCard.remove();
+                                }
+
+                                // Check if there are any remaining link cards
+                                const linkContainer = document.getElementById('link-container');
+                                const noLinksMessage = document.getElementById('no-links-message');
+
+                                if (linkContainer.children.length === 0) {
+                                    if (noLinksMessage) {
+                                        noLinksMessage.style.display = 'block';
+                                    }
+                                } else {
+                                    if (noLinksMessage) {
+                                        noLinksMessage.style.display = 'none';
+                                    }
+                                }
+
+                            } else {
+                                showStatusMessage(result.message, false);
+                            }
+                        } catch (error) {
+                            console.error('Error in delete link listener:', error);
+                            showStatusMessage("An error occurred while deleting the link. Please try again.", false);
+                        }
+                    }
+                }
+            });
+        
+
+            // Event listener for deleting a scheduled link
+            document.getElementById('scheduled-links-container').addEventListener('click', async function (event) {
+                if (event.target.classList.contains('delete-scheduled-link-btn')) {
+                    const button = event.target;
+                    const taskId = button.dataset.taskId;
+                    console.log('Delete button clicked for scheduled task ID:', taskId);
+                    if (confirm('Are you sure you want to delete this scheduled task?')) {
+                        try {
+                            const response = await fetch(`?handler=DeleteScheduledLink&id=${@Model.Id}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                                },
+                                body: JSON.stringify({ id: taskId })
+                            });
+                            console.log('Delete scheduled task response received. Status:', response.status);
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                console.error('Delete scheduled task failed with status not OK. Server message:', errorText);
+                                throw new Error(`Server returned status: ${response.status}, message: ${errorText}`);
+                            }
+                            const result = await response.json();
+                            console.log('Delete scheduled task JSON result:', result);
+                            if (result.success) {
+                                showStatusMessage(result.message, true);
+
+                                // Find the scheduled link card element and remove it
+                                const scheduledlinkCard = document.getElementById(`scheduled-task-${taskId}`);
+                                if (scheduledlinkCard) {
+                                    scheduledlinkCard.remove();
+                                }
+                                
+                                // Check if the scheduled links container is now empty
+                                const scheduledLinksContainer = document.getElementById('scheduled-links-container');
+                                const rowContainer = scheduledLinksContainer.querySelector('.row');
+                                
+                                // If there are no more child elements inside the .row, hide the main container
+                                if (rowContainer.children.length === 0) {
+                                    scheduledLinksContainer.style.display = 'none';
+                                }
+
+                            } else {
+                                showStatusMessage(result.message, false);
+                            }
+                        } catch (error) {
+                            showStatusMessage("An error occurred while deleting the scheduled task. Please try again.", false);
+                            console.error(`Error in delete scheduled task listener:`, error);
+                        }
+                    }
+                }
+            });
+        }
+    );
+    </script>
+}

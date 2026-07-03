@@ -1,0 +1,300 @@
+﻿@page "{id:long}"
+@model personal_attendanse_system.Pages.Groups.Machine.ManageModel
+@{
+    ViewData["Title"] = "Manage Machine Groups";
+}
+
+<div class="container mt-4">
+    <div id="statusMessageContainer"></div>
+
+    @if (Model.Machine == null)
+    {
+        <div class="alert alert-info">
+            Machine not found.
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="m-0">Manage Groups for: @Model.Machine.Name</h2>
+            <div>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#machineKeyModal">
+                    <i class="bi bi-key-fill"></i> Machine Key
+                </button>
+                <a asp-page="/Groups/Machine/Index" class="btn btn-secondary">Back</a>
+            </div>
+        </div>
+
+
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Manage Group Assignments</h4>
+                        <form class="d-flex gap-2">
+                            <div class="input-group">
+                                <input type="text" id="searchQuery" class="form-control" placeholder="Search groups by name...">
+                                <button type="button" class="btn btn-outline-secondary">
+                                    <i class="bi bi-search"></i> Search
+                                </button>
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Filter: All
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="filterDropdown">
+                                    <li><a class="dropdown-item active" href="#" data-filter="all">All</a></li>
+                                    <li><a class="dropdown-item" href="#" data-filter="assigned">Assigned</a></li>
+                                    <li><a class="dropdown-item" href="#" data-filter="unassigned">Unassigned</a></li>
+                                </ul>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-striped table-hover mb-0" id="groupTable">
+                                <thead>
+                                    <tr>
+                                        <th>Group Name</th>
+                                        <th class="text-end">Status</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var group in Model.AllGroups.OrderBy(g => g.name))
+                                    {
+                                        var isAssigned = Model.AssignedGroupIds.Contains(group.Id);
+                                        <tr class="group-item"
+                                            data-group-name="@group.name.ToLower()"
+                                            data-group-id="@group.Id"
+                                            data-assigned="@isAssigned.ToString().ToLower()">
+                                            <td>@group.name</td>
+                                            <td class="text-end">
+                                                <span class="badge ms-2 @(isAssigned ? "bg-success" : "")" id="badge-@group.Id" style="@(isAssigned ? "" : "display:none;")">Assigned</span>
+                                            </td>
+                                            <td class="text-end">
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" class="btn btn-sm btn-success add-btn" data-id="@group.Id" style="@(isAssigned ? "display:none;" : "")">
+                                                        <i class="bi bi-plus-circle-fill"></i> Add
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-danger remove-btn" data-id="@group.Id" style="@(isAssigned ? "" : "display:none;")">
+                                                        <i class="bi bi-trash-fill"></i> Remove
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<div class="modal fade" id="machineKeyModal" tabindex="-1" aria-labelledby="machineKeyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="machineKeyModalLabel">Machine Key</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="text-muted">Scan this QR code to configure a device as a scanner.</p>
+                <img id="qrCodeImage" src="@Model.QrCodeImage" alt="QR Code" class="img-fluid mb-3">
+                <div class="mb-3">
+                    <strong>Machine ID:</strong> <span id="machineIdDisplay">@Model.Machine.Id</span>
+                </div>
+                <div class="mb-3">
+                    <strong>Machine Token:</strong> <span id="machineTokenDisplay">@Model.Machine.Token</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-machine-id="@Model.Machine.Id" id="regenerateTokenBtn">Regenerate Token</button>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const searchInput = document.getElementById('searchQuery');
+            const filterDropdown = document.getElementById('filterDropdown');
+            const filterItems = document.querySelectorAll('#filterDropdown + .dropdown-menu .dropdown-item');
+            const groupTableBody = document.querySelector('#groupTable tbody');
+            const machineId = @Model.Id;
+            const statusMessageContainer = document.getElementById('statusMessageContainer');
+
+            let currentFilter = 'all';
+
+            function showStatusMessage(message, isSuccess) {
+                const alertClass = isSuccess ? 'alert-success' : 'alert-danger';
+                const html = `<div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                                          ${message}
+                                          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                      </div>`;
+                statusMessageContainer.innerHTML = html;
+            }
+
+            // Function to apply all filters
+            function applyFilters() {
+                const searchValue = searchInput.value.toLowerCase();
+                const groupRows = groupTableBody.querySelectorAll('.group-item');
+
+                groupRows.forEach(row => {
+                    const groupName = row.getAttribute('data-group-name');
+                    const isAssigned = row.getAttribute('data-assigned') === 'true';
+
+                    const nameMatches = groupName.includes(searchValue);
+                    let statusMatches = false;
+
+                    if (currentFilter === 'all') {
+                        statusMatches = true;
+                    } else if (currentFilter === 'assigned') {
+                        statusMatches = isAssigned;
+                    } else if (currentFilter === 'unassigned') {
+                        statusMatches = !isAssigned;
+                    }
+
+                    // Show the row if both conditions are met
+                    if (nameMatches && statusMatches) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+
+            // Event listener for search input
+            searchInput.addEventListener('keyup', applyFilters);
+
+            // Event listener for filter dropdown
+            filterItems.forEach(item => {
+                item.addEventListener('click', function (e) {
+                    e.preventDefault();
+
+                    // Update the active item and dropdown button text
+                    filterItems.forEach(li => li.classList.remove('active'));
+                    item.classList.add('active');
+                    currentFilter = item.getAttribute('data-filter');
+                    filterDropdown.textContent = `Filter: ${item.textContent}`;
+
+                    applyFilters();
+                });
+            });
+
+            // Handle Add/Remove button clicks
+            groupTableBody.addEventListener('click', async (event) => {
+                const targetBtn = event.target.closest('button');
+                if (!targetBtn) return;
+
+                const groupId = targetBtn.getAttribute('data-id');
+                const groupRow = targetBtn.closest('.group-item');
+                if (!groupRow) return;
+
+                const addBtn = groupRow.querySelector('.add-btn');
+                const removeBtn = groupRow.querySelector('.remove-btn');
+                const badge = groupRow.querySelector('.badge');
+
+                let handler, requestBody, confirmMessage;
+
+                if (targetBtn.classList.contains('add-btn')) {
+                    handler = 'AddGroup';
+                    requestBody = { machineId: machineId, groupId: parseInt(groupId) };
+                } else if (targetBtn.classList.contains('remove-btn')) {
+                    handler = 'RemoveGroup';
+                    requestBody = { machineId: machineId, groupId: parseInt(groupId) };
+                    confirmMessage = 'Are you sure you want to remove this group?';
+                    if (!confirm(confirmMessage)) return;
+                } else {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`?handler=${handler}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        showStatusMessage(result.message, true);
+                        if (targetBtn.classList.contains('add-btn')) {
+                            addBtn.style.display = 'none';
+                            removeBtn.style.display = 'block';
+                            badge.style.display = 'inline';
+                            groupRow.setAttribute('data-assigned', 'true');
+                            badge.classList.add("bg-success");
+                        } else {
+                            addBtn.style.display = 'block';
+                            removeBtn.style.display = 'none';
+                            badge.style.display = 'none';
+                            groupRow.setAttribute('data-assigned', 'false');
+                            badge.classList.remove("bg-success");
+                        }
+                        // Re-apply filters after a successful change
+                        applyFilters();
+                    } else {
+                        showStatusMessage(result.message, false);
+                    }
+                } catch (error) {
+                    showStatusMessage("An unexpected error occurred. Please try again.", false);
+                    console.error('Error:', error);
+                }
+            });
+
+            const regenerateTokenBtn = document.getElementById('regenerateTokenBtn');
+            const machineIdDisplay = document.getElementById('machineIdDisplay');
+            const machineTokenDisplay = document.getElementById('machineTokenDisplay');
+            const qrCodeImage = document.getElementById('qrCodeImage');
+
+            // Add the event listener for the Regenerate Token button
+            regenerateTokenBtn.addEventListener('click', async function () {
+                // Display a loading message
+                showStatusMessage("Regenerating token...", true);
+
+                try {
+                    const response = await fetch(`?handler=RegenerateToken`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                        },
+                        "body": JSON.stringify({
+                            "id": regenerateTokenBtn.getAttribute("data-machine-id")
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        // Update the modal content with the new data
+                        machineIdDisplay.textContent = result.newMachineId;
+                        machineTokenDisplay.textContent = result.newToken;
+                        qrCodeImage.src = result.newQrCodeImage;
+
+                        showStatusMessage(result.message, true);
+                    } else {
+                        showStatusMessage(result.message, false);
+                    }
+
+                } catch (error) {
+                    showStatusMessage("An unexpected error occurred. Please try again.", false);
+                    console.error('Error:', error);
+                }
+            });
+
+        });
+    </script>
+}

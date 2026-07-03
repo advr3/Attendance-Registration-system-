@@ -1,0 +1,271 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+    bool hasGroups = Model.GroupsWhereUserIsStaff.Any() || Model.PrivateGroups.Any() || Model.PublicGroups.Any();
+}
+
+<div class="container mt-5">
+    @if (Model.IsLoggedIn)
+    {
+        <h1 class="text-center mb-4 display-4 text-primary">Welcome Back, @User.Identity.Name!</h1>
+        <p class="text-center lead">Explore and manage your attendance groups below.</p>
+
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <input type="text" id="groupSearch" class="form-control" placeholder="Search for groups...">
+                    <button class="btn btn-primary" type="button" id="searchButton">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.IsAdmin)
+        {
+            <div class="text-center mb-4">
+                <a asp-page="Groups/Manage" class="btn btn-outline-success">
+                    <i class="bi bi-gear-fill"></i> Manage Groups
+                </a>
+
+                <a asp-page="Groups/Machine/Index" class="btn btn-outline-success">
+                    <i class="bi bi-gear-fill"></i> Manage Machines
+                </a>
+            </div>
+        }
+
+        @if (hasGroups)
+        {
+            @if (Model.GroupsWhereUserIsStaff.Any())
+            {
+                <div class="col-12 mt-4 mb-2">
+                    <div class="section-title" id="StaffGroupCardsTitle">
+                        <h4 class="text-secondary">Staff</h4>
+                    </div>
+                </div>
+                <div class="row row-cols-1 row-cols-md-3 g-4" id="StaffGroupCardsContainer">
+                    @foreach(var group in Model.GroupsWhereUserIsStaff)
+                    {
+                        <div class="col group-card" data-group-name="@group.name.ToLower()">
+                            <a asp-page="Group/index" asp-route-id="@group.Id" class="card-link text-decoration-none">
+                                <div class="card h-100 shadow-sm" style="background-color: @GetColorForString(group.name);">
+                                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                                        <h5 class="card-title text-white text-center mb-0">@group.name</h5>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    }
+                </div>
+            }
+
+
+            @if (Model.PrivateGroups.Any())
+            {
+                <div class="col-12 mt-4 mb-2">
+                    <div class="section-title" id="PrivateGroupCardsTitle">
+                        <h4 class="text-secondary">Private</h4>
+                    </div>
+                </div>
+                <div class="row row-cols-1 row-cols-md-3 g-4" id="PrivateGroupCardsContainer">
+                    @foreach(var group in Model.PrivateGroups)
+                    {
+                        <div class="col group-card" data-group-name="@group.name.ToLower()">
+                            <a asp-page="Group/index" asp-route-id="@group.Id" class="card-link text-decoration-none">
+                                <div class="card h-100 shadow-sm" style="background-color: @GetColorForString(group.name);">
+                                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                                        <h5 class="card-title text-white text-center mb-0">@group.name</h5>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (Model.PublicGroups.Any())
+            {
+                    <div class="col-12 mt-4 mb-2">
+                        <div class="section-title" id="PublicGroupCardsTitle">
+                            <h4 class="text-secondary">Public</h4>
+                        </div>
+                    </div>
+                <div class="row row-cols-1 row-cols-md-3 g-4" id="PublicGroupCardsContainer">
+                    @foreach(var group in Model.PublicGroups)
+                    {
+                        <div class="col group-card" data-group-name="@group.name.ToLower()">
+                            <a asp-page="Group/index" asp-route-id="@group.Id" class="card-link text-decoration-none">
+                                <div class="card h-100 shadow-sm" style="background-color: @GetColorForString(group.name);">
+                                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                                        <h5 class="card-title text-white text-center mb-0">@group.name</h5>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="alert alert-info text-center" role="alert">
+                <i class="bi bi-info-circle-fill"></i> You are not a member of any group.
+            </div>
+        }
+    }
+    else
+    {
+        <section id="hero" class="hero section dark-background">
+
+
+
+            <div id="hero-carousel" class="carousel carousel-fade" data-bs-ride="carousel" data-bs-interval="5000">
+
+                <div class="container position-relative">
+
+
+                    <div class="container text-center">
+                        <h2>Solutions for Everyone</h2>
+                        <div class="row row-cols-1 row-cols-md-3 g-4">
+
+                            <div class="carousel-item active">
+                                <div class="carousel-container">
+                                    <h5 class="card-title fw-bold">For Institutions</h5>
+                                    <p>Manage student and employee attendance across multiple groups and locations with robust reporting.</p>
+                                </div>
+                            </div>
+
+                            <div class="carousel-item">
+                                <div class="carousel-container">
+                                    <h5 class="card-title fw-bold">For Small Businesses</h5>
+                                    <p>Keep track of staff hours and ensure accountability effortlessly.</p>
+                                </div>
+                            </div>
+
+                            <div class="carousel-item">
+                                <div class="carousel-container">
+                                    <h5 class="card-title fw-bold">For Individuals</h5>
+                                    <p>Perfect for personal projects, clubs, or small events. Simple, fast, and free to get started.</p>
+                                </div>
+                            </div>
+
+
+                        </div>
+                    </div>
+
+                    <a class="carousel-control-prev" href="#hero-carousel" role="button" data-bs-slide="prev" title="Previous Slide">
+                        <span class="carousel-control-prev-icon bi bi-chevron-left" aria-hidden="true"></span>
+                    </a>
+
+                    <a class="carousel-control-next" href="#hero-carousel" role="button" data-bs-slide="next" title="Next Slide">
+                        <span class="carousel-control-next-icon bi bi-chevron-right" aria-hidden="true"></span>
+                    </a>
+
+                    <ol class="carousel-indicators"></ol>
+
+                </div>
+
+            </div>
+
+
+        </section>
+
+        <!-- /Hero Section -->
+
+        <div class="container text-center my-5 py-5">
+            <div class="position-relative text-white z-1">
+                <h1 class="display-4 fw-bold" style="color:#1e4356">Effortless Attendance Management</h1>
+                <p class="my-3 fs-5" style="color:#555555">
+                    Streamline attendance tracking for your teams and events with our powerful and easy-to-use system.
+                </p>
+
+                <div class="d-flex justify-content-evenly d-grid gap-2 container-sightlines">
+                    <div class="item">
+                        <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-outline-primary  btn-lg px-4 fw-bold">Sign In</a>
+                        <p class="my-3 fs-5" style="color:#555555">already have an acount? Sign in now and continue your work</p>
+                    </div>
+                    <div class="item">
+                        <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-outline-primary  btn-lg px-4 fw-bold">Sign Up</a>
+                        <p class="my-3 fs-5" style="color:#555555">No acount? Simple Sign up for free and start your journey</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('groupSearch');
+        const searchButton = document.getElementById('searchButton');
+
+        // Mapping titles to their card containers
+        const sections = [
+            { titleId: 'StaffGroupCardsTitle', containerId: 'StaffGroupCardsContainer' },
+            { titleId: 'PrivateGroupCardsTitle', containerId: 'PrivateGroupCardsContainer' },
+            { titleId: 'PublicGroupCardsTitle', containerId: 'PublicGroupCardsContainer' }
+        ];
+
+        function filterGroups() {
+            const searchValue = searchInput.value.toLowerCase();
+
+            sections.forEach(section => {
+                const titleElement = document.getElementById(section.titleId);
+                const containerElement = document.getElementById(section.containerId);
+                
+                if (!containerElement) {
+                    // Skip if the container for this section doesn't exist on the page
+                    return;
+                }
+                
+                const groupCards = containerElement.querySelectorAll('.group-card');
+                let visibleCardCount = 0;
+
+                groupCards.forEach(card => {
+                    const groupName = card.getAttribute('data-group-name');
+                    if (groupName.includes(searchValue)) {
+                        card.style.display = 'block';
+                        visibleCardCount++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // Check if any cards are visible in this section and show/hide the title accordingly
+                if (titleElement) {
+                    if (visibleCardCount > 0) {
+                        titleElement.style.display = 'flex'; // Use 'flex' to keep the line style
+                    } else {
+                        titleElement.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        searchInput.addEventListener('keyup', filterGroups);
+        searchButton.addEventListener('click', filterGroups);
+    });
+</script>
+}
+
+@functions {
+    // A simple hash function to generate a consistent color from a string
+    public string GetColorForString(string str)
+    {
+        var hash = 0;
+        foreach (char c in str)
+        {
+            hash = c + ((hash << 5) - hash);
+        }
+
+        var color = "#";
+        for (var i = 0; i < 3; i++)
+        {
+            var value = (hash >> (i * 8)) & 0xFF;
+            color += value.ToString("X2");
+        }
+        return color;
+    }
+}

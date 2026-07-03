@@ -1,0 +1,295 @@
+﻿@page "{GroupId:long}"
+@model personal_attendanse_system.Pages.Group.ManageMembersModel
+@{
+    ViewData["Title"] = "Manage Members";
+}
+
+<div class="container mt-4">
+    <div id="status-message-container">
+        <partial name="_StatusMessage" model="Model.StatusMessage" />
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="m-0">Manage Members for @Model.Group.name</h2>
+        <div>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMembersModal">Add Member</button>
+            <a asp-page="/Groups/Manage" class="btn btn-secondary">Back</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Current Members</h4>
+                    <form>
+                        <div class="input-group">
+                            <input type="text" id="searchQuery" class="form-control" placeholder="Search for members...">
+                            <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                                <i class="bi bi-search"></i> Search
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-body" id="members-list-container">
+                    @if (Model.Members != null && Model.Members.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Joined On</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var member in Model.Members)
+                                    {
+                                        <tr class="member-row" data-member-name="@member.User.UserName" id="member-row-@member.UserId">
+                                            <td>@member.User.UserName</td>
+                                            <td>@member.User.Email</td>
+                                            <td>@member.joinDate.ToLocalTime().ToString("g")</td>
+                                            <td>
+                                                <button type="button" class="btn btn-danger btn-sm remove-member-btn" data-user-id="@member.UserId">Remove</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted" id="no-members-message">There are no members in this group yet.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="addMembersModal" class="modal fade" tabindex="-1" aria-labelledby="addMembersModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="addMembersModalLabel">Add Members to @Model.Group.name</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="memberTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button" role="tab" aria-controls="manual" aria-selected="true">Manually</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="qrcode-tab" data-bs-toggle="tab" data-bs-target="#qrcode" type="button" role="tab" aria-controls="qrcode" aria-selected="false">By QR Code</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="memberTabsContent">
+                    <div class="tab-pane fade show active" id="manual" role="tabpanel" aria-labelledby="manual-tab">
+                        <div class="card shadow-sm border-0 mt-3">
+                            <div class="card-body">
+                                <form id="addMemberForm">
+                                    <div class="mb-3">
+                                        <label for="userIdentifier" class="form-label">Member Email</label>
+                                        <input type="text" class="form-control" id="userIdentifier" name="userIdentifier" required placeholder="Enter email" />
+                                    </div>
+                                    <button type="submit" class="btn btn-success">Add Member</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="qrcode" role="tabpanel" aria-labelledby="qrcode-tab">
+                        <div class="card shadow-sm border-0 mt-3">
+                            <div class="card-body text-center">
+                                @if (!string.IsNullOrEmpty(Model.JoinQrCodeUrl))
+                                {
+                                    <p>Share this QR code with users to let them join this group.</p>
+                                    <div class="mb-3">
+                                        <img src="@Model.JoinQrCodeImage" alt="Group Join QR Code" class="img-fluid border p-2" />
+                                    </div>
+                                    <p class="text-muted"><small>Link expires in 24 hours.</small></p>
+                                    @*
+                                    <a href="#" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#qrCodeModal" data-qr-src="@Model.JoinQrCodeImage" data-link-url="@Model.JoinQrCodeUrl">
+                                        View Full QR Code
+                                    </a>
+                                    *@
+                                }
+                                else
+                                {
+                                    <p>Generate a QR code to allow users to join this group.</p>
+                                    <form method="post" asp-page-handler="GenerateJoinQrCode">
+                                        <input type="hidden" asp-for="GroupId" />
+                                        <button type="submit" class="btn btn-success">Generate Join QR Code</button>
+                                    </form>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function showStatusMessage(message, isSuccess) {
+            const container = document.getElementById('status-message-container');
+            const alertClass = isSuccess ? 'alert-success' : 'alert-danger';
+            container.innerHTML = `<div class="alert ${alertClass} alert-dismissible fade show" role="alert">${message}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`;
+        }
+
+        function createMemberRowHtml(member) {
+            return `<tr class="member-row" data-member-name="${member.userName}" id="member-row-${member.id}">
+                        <td>${member.userName}</td>
+                        <td>${member.email}</td>
+                        <td>${new Date().toLocaleString()}</td>
+                        <td>
+                            <button type="button" class="btn btn-danger btn-sm remove-member-btn" data-user-id="${member.id}">Remove</button>
+                        </td>
+                    </tr>`;
+        }
+        
+        document.addEventListener('DOMContentLoaded', function () {
+            // Search functionality
+            const searchInput = document.getElementById('searchQuery');
+            function filterGroups() {
+                const searchValue = searchInput.value.toLowerCase();
+                document.querySelectorAll('.member-row').forEach(row => {
+                    const memberName = row.getAttribute('data-member-name');
+                    if (memberName.includes(searchValue)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+            searchInput.addEventListener('keyup', filterGroups);
+            document.getElementById('searchButton').addEventListener('click', filterGroups);
+
+            // Add Member via AJAX
+            const addMemberForm = document.getElementById('addMemberForm');
+            if (addMemberForm) {
+                addMemberForm.addEventListener('submit', async function (event) {
+                    event.preventDefault();
+                    const userIdentifier = document.getElementById('userIdentifier').value;
+                    const requestBody = { userIdentifier: userIdentifier };
+
+                    try {
+                        const response = await fetch('?handler=AddMember', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                            },
+                            body: JSON.stringify(requestBody)
+                        });
+
+                        const result = await response.json();
+                        if (result.success) {
+                            showStatusMessage(result.message, true);
+                            const tableBody = document.querySelector('#members-list-container table tbody');
+                            const newRowHtml = createMemberRowHtml(result.member);
+                            if (tableBody) {
+                                tableBody.insertAdjacentHTML('beforeend', newRowHtml);
+                            } else {
+                                // If the table doesn't exist, create it and the row
+                                const membersListContainer = document.getElementById('members-list-container');
+                                membersListContainer.innerHTML = `
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr><th>Username</th><th>Email</th><th>Joined On</th><th>Actions</th></tr>
+                                            </thead>
+                                            <tbody>${newRowHtml}</tbody>
+                                        </table>
+                                    </div>`;
+                                // Hide the 'no members' message
+                                const noMembersMessage = document.getElementById('no-members-message');
+                                if (noMembersMessage) {
+                                    noMembersMessage.style.display = 'none';
+                                }
+                            }
+                            document.getElementById('addMembersModal').querySelector('.btn-close').click(); // Close the modal
+                        } else {
+                            showStatusMessage(result.message, false);
+                        }
+                    } catch (error) {
+                        showStatusMessage("An error occurred. Please try again.", false);
+                        console.error('Error adding member:', error);
+                    }
+                });
+            }
+
+            // Remove Member via AJAX
+            document.querySelector('#members-list-container').addEventListener('click', async function (event) {
+                if (event.target.classList.contains('remove-member-btn')) {
+                    const button = event.target;
+                    const userIdToRemove = button.dataset.userId;
+
+                    if (confirm('Are you sure you want to remove this member?')) {
+                        try {
+                            const response = await fetch('?handler=RemoveMember', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                                },
+                                body: JSON.stringify({ userIdToRemove: userIdToRemove })
+                            });
+
+                            const result = await response.json();
+                            if (result.success) {
+                                showStatusMessage(result.message, true);
+                                const memberRow = document.getElementById(`member-row-${result.userId}`);
+                                if (memberRow) {
+                                    memberRow.remove();
+                                }
+                                // Check if the table is now empty
+                                const tableBody = document.querySelector('#members-list-container table tbody');
+                                if (tableBody && tableBody.children.length === 0) {
+                                    document.getElementById('members-list-container').innerHTML = `<p class="text-muted" id="no-members-message">There are no members in this group yet.</p>`;
+                                }
+                            } else {
+                                showStatusMessage(result.message, false);
+                            }
+                        } catch (error) {
+                            showStatusMessage("An error occurred while removing the member. Please try again.", false);
+                            console.error('Error removing member:', error);
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+    <script>
+        // QR Code modal and copy functionality
+        document.addEventListener('DOMContentLoaded', function () {
+            let qrCodeModal = document.getElementById('qrCodeModal');
+            let copyLinkBtn = document.getElementById('copyLinkBtn');
+            let modalImage = document.getElementById('modalQRCode');
+
+            if (qrCodeModal && copyLinkBtn && modalImage) {
+                 qrCodeModal.addEventListener('show.bs.modal', function (event) {
+                    let button = event.relatedTarget;
+                    let qrCodeSrc = button.getAttribute('data-qr-src');
+                    let linkUrl = button.getAttribute('data-link-url');
+                    
+                    modalImage.src = qrCodeSrc;
+
+                    copyLinkBtn.onclick = () => {
+                        navigator.clipboard.writeText(linkUrl).then(() => {
+                            copyLinkBtn.textContent = "Copied!";
+                            setTimeout(() => copyLinkBtn.textContent = "Copy Link", 2000);
+                        }).catch(err => {
+                            console.error("Failed to copy link: ", err);
+                        });
+                    };
+                });
+            }
+        });
+    </script>
+}

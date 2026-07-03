@@ -1,0 +1,88 @@
+﻿<!DOCTYPE html>
+<html lang="en" class="h-100">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Personal Attendance System</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/main.css" asp-append-version="true" />
+
+    @*<link rel="stylesheet" href="~/YourApp.styles.css" asp-append-version="true" />*@
+    <!-- Favicons -->
+<<<<<<< HEAD
+    <link href="~/images/logoh.png" rel="icon">
+=======
+    <link href="~/images/huduri.png" rel="icon">
+    <link href="~/images/apple-touch-icon.png" rel="apple-touch-icon">
+>>>>>>> 638726d5fef7a73bac423ae8b1a36572fbdc7ec8
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Raleway:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+
+    <!-- Vendor CSS Files -->
+    <link href="~/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="~/lib/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+    <link href="~/lib/aos/aos.css" rel="stylesheet">
+    <link href="~/lib/glightbox/css/glightbox.min.css" rel="stylesheet">
+    <link href="~/lib/swiper/swiper-bundle.min.css" rel="stylesheet">
+</head>
+<body class="d-flex flex-column h-100">
+    <header id="header" class="header d-flex align-items-center fixed-top">
+        <div class="container-fluid container-xl position-relative d-flex align-items-center justify-content-between">
+
+            <a asp-page="/Index" class="logo d-flex align-items-center">
+                <!-- Uncomment the line below if you also wish to use an image logo -->
+<<<<<<< HEAD
+                <img src="~/images/logoh.png" alt="">
+=======
+                <img src="~/images/huduri.png" alt="">
+>>>>>>> 638726d5fef7a73bac423ae8b1a36572fbdc7ec8
+                <h1 class="sitename">Huduri</h1>
+            </a>
+
+            <nav id="navmenu" class="navmenu">
+                <partial name="_LoginPartial" />
+
+                <i class="mobile-nav-toggle d-xl-none bi bi-list"></i>
+            </nav>
+        </div>
+    </header>
+    <main role="main" class="flex-shrink-0 py-4">
+        <div class="container" style="margin-top: 80px;">
+            @RenderBody()
+        </div>
+    </main>
+
+    <footer id="footer" class="footer dark-background">
+        <div class="container copyright text-center mt-4">
+            <p>© <span>Copyright</span> <strong class="px-1 sitename">Huduri</strong> <span>All Rights Reserved</span></p>
+            <div class="credits">
+            </div>
+        </div>
+
+        <a href="#" id="scroll-top" class="scroll-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
+
+
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/main.js"></script>
+    <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="~/lib/php-email-form/validate.js"></script>
+    <script src="~/lib/aos/aos.js"></script>
+    <script src="~/lib/glightbox/js/glightbox.min.js"></script>
+    <script src="~/lib/purecounter/purecounter_vanilla.js"></script>
+    <script src="~/lib/swiper/swiper-bundle.min.js"></script>
+    <script src="~/lib/waypoints/noframework.waypoints.js"></script>
+    <script src="~/lib/imagesloaded/imagesloaded.pkgd.min.js"></script>
+    <script src="~/lib/isotope-layout/isotope.pkgd.min.js"></script>
+
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

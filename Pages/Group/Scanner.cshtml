@@ -1,0 +1,87 @@
+﻿@page "{linkUrl}"
+@model personal_attendanse_system.Pages.Group.ScannerModel
+@{
+    ViewData["Title"] = "Group Scanner page";
+}
+<div class="container mt-5">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white text-center">
+            <h4>Attendance Scanner</h4>
+            <p>Scanning for link: <strong>@Model.Link.LinkURL</strong></p>
+        </div>
+        <div class="card-body text-center">
+            <p class="lead" id="statusMessage">Please scan a user's QR code.</p>
+            <div id="reader" style="width: 100%; max-width: 600px; margin: 0 auto;"></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/lib/html5-qrcode.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            let html5QrCode = new Html5Qrcode("reader");
+            let statusMessage = document.getElementById('statusMessage');
+            let scannedCodes = new Set();
+            
+            const qrCodeConfig = {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                supportedScanFormats: [Html5QrcodeSupportedFormats.QR_CODE]
+            };
+
+            html5QrCode.start({ facingMode: "environment" }, qrCodeConfig,
+                (decodedText, decodedResult) => {
+                    // Success callback
+                    if (scannedCodes.has(decodedText)) {
+                        return;
+                    }
+                    scannedCodes.add(decodedText);
+                    
+                    statusMessage.textContent = 'Scanning...';
+
+                    fetch('@Url.PageLink("/Group/Scanner", "Scan")', {
+                        method: 'POST',
+                        headers: {
+                            'RequestVerificationToken': document.getElementsByName("__RequestVerificationToken")[0].value,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            scannedCode: decodedText,
+                            linkUrl: '@Model.Link.LinkURL'
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        statusMessage.textContent = data.message;
+                        if (data.success) {
+                            statusMessage.className = 'text-success lead';
+                        } else {
+                            statusMessage.className = 'text-danger lead';
+                        }
+                        setTimeout(() => {
+                            scannedCodes.delete(decodedText);
+                            statusMessage.textContent = 'Please scan another user\'s QR code.';
+                            statusMessage.className = 'lead';
+                        }, 3000);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        statusMessage.textContent = 'An error occurred. Please try again.';
+                        statusMessage.className = 'text-danger lead';
+                        scannedCodes.delete(decodedText);
+                    });
+                },
+                (errorMessage) => {
+                    // Error callback (optional)
+                    // You can ignore or log this if you wish
+                })
+                .catch((err) => {
+                    // Start failed, handle it
+                    statusMessage.textContent = `Camera access error: ${err}`;
+                    statusMessage.className = 'text-danger lead';
+                    console.error("Camera start failed.", err);
+                });
+        });
+    </script>
+}

@@ -1,0 +1,79 @@
+html {
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  margin-bottom: 60px;
+}
+
+main {
+  flex: 1;
+}
+
+
+.section-title {
+    display: flex;
+    align-items: center;
+    text-align: center;
+}
+
+.section-title h4 {
+    margin: 0 1rem; /* Adjust spacing between text and lines */
+    white-space: nowrap; /* Prevents the word from wrapping */
+}
+
+.section-title::before,
+.section-title::after {
+    content: '';
+    flex-grow: 1; /* Makes the lines expand */
+    background-color: #ccc; /* Color of the line */
+    height: 1px; /* Thickness of the line */
+}
+
+
+.section-title.right-line {
+    display: flex;
+    align-items: center;
+    text-align: left;
+}
+
+.section-title.right-line h4 {
+    margin: 0 1rem 0 0; /* Adjust spacing */
+}
+
+.section-title.right-line::after {
+    content: '';
+    flex-grow: 1;
+    background-color: #ccc;
+    height: 1px;
+}
+
+body.fullscreen-mode header,
+body.fullscreen-mode footer,
+body.fullscreen-mode .btn-group,
+body.fullscreen-mode #scannerButtons {
+    display: none !important;
+}
+

@@ -1,0 +1,26 @@
+﻿@page "{linkUrl}"
+@model personal_attendanse_system.Pages.JoinGroupModel
+@{
+    ViewData["Title"] = "Join Group";
+}
+
+<div class="container mt-5">
+    <partial name="_StatusMessage" model="Model.StatusMessage" />
+    
+    @if (Model.Group != null)
+    {
+        <h1 class="text-center">Welcome to @Model.Group.name!</h1>
+        <p class="lead text-center">You are now a member of this group.</p>
+        <div class="text-center mt-4">
+            <a asp-page="/Group/Index" asp-route-id="@Model.Group.Id" class="btn btn-primary">Go to Group Page</a>
+        </div>
+    }
+    else
+    {
+        <h1 class="text-center">Join Group</h1>
+        <p class="lead text-center">Please log in to join this group.</p>
+        <div class="text-center mt-4">
+            <a asp-page="/Account/Login" class="btn btn-primary">Login to Join</a>
+        </div>
+    }
+</div>

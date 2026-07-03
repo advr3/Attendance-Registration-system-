@@ -1,0 +1,342 @@
+﻿@page
+@model personal_attendanse_system.Pages.MachineAsScannerModel
+@{
+    ViewData["Title"] = "Machine as Scanner";
+}
+
+<div class="container mt-4">
+    @Html.AntiForgeryToken()
+    <div id="statusMessageContainer"></div>
+
+    <div class="card shadow-lg p-4">
+        <div class="text-center mb-4">
+            <h1 class="display-5 fw-bold text-primary">Attendance Scanner</h1>
+            <p class="lead">
+                <span class="lead text-muted" id="page-subtitle">Set up this device to scan QR codes for attendance.</span>
+                <span class="fw-bold" id="page-subtitle-span"></span>
+            </p>
+        </div>
+
+        <div id="manualConfigSection" style="display: none;">
+            <div class="mb-4 text-center">
+                <h5 class="card-subtitle mb-2 text-muted">
+                    <i class="bi bi-gear me-2"></i>Scanner Configuration
+                </h5>
+                <button id="scanQrConfigBtn" class="btn btn-outline-secondary">
+                    <i class="bi bi-qr-code me-2"></i>Scan QR for Setup
+                </button>
+            </div>
+
+            <hr class="my-4">
+
+            <div id="manualConfig">
+                <h5 class="card-subtitle mb-3 text-muted">
+                    <i class="bi bi-pencil me-2"></i>Manual Setup
+                </h5>
+                <div class="mb-3">
+                    <label for="machineIdInput" class="form-label">Machine ID</label>
+                    <input type="text" class="form-control" id="machineIdInput" placeholder="Enter Machine ID">
+                </div>
+                <div class="mb-3">
+                    <label for="machineTokenInput" class="form-label">Machine Token</label>
+                    <input type="password" class="form-control" id="machineTokenInput" placeholder="Enter Machine Token">
+                </div>
+                <div class="d-grid gap-2">
+                    <button id="saveConfigBtn" class="btn btn-primary">
+                        <i class="bi bi-save me-2"></i>Save Configuration
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="scannerSection" class="text-center" style="display: none;">
+            <div class="card-body text-center">
+                <p class="lead" id="statusMessage">Please scan a user's QR code.</p>
+                <div id="reader" style="width: 100%; max-width: 600px; margin: 0 auto;"></div>
+                <div id="scannerButtons" class="mt-3 d-flex justify-content-between">
+                    <button id="fullscreenBtn" class="btn btn-outline-info flex-grow-1 me-2">
+                        <i class="bi bi-arrows-fullscreen me-2"></i>Full Screen
+                    </button>
+                    <button id="resetBtn" class="btn btn-outline-danger flex-grow-1">
+                        <i class="bi bi-arrow-counterclockwise me-2"></i>Reset Machine
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/lib/html5-qrcode.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const container = document.querySelector('.container');
+            const card = document.querySelector('.card');
+            const manualConfigSection = document.getElementById('manualConfigSection');
+            const scannerSection = document.getElementById('scannerSection');
+            const pageSubtitle = document.getElementById('page-subtitle');
+            const pageSubtitleSpan = document.getElementById('page-subtitle-span');
+            const machineIdInput = document.getElementById('machineIdInput');
+            const machineTokenInput = document.getElementById('machineTokenInput');
+            const saveConfigBtn = document.getElementById('saveConfigBtn');
+            const scanQrConfigBtn = document.getElementById('scanQrConfigBtn');
+            const statusMessage = document.getElementById('statusMessage');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            const resetBtn = document.getElementById('resetBtn');
+
+            let html5QrCode = null;
+            let processingScan = false;
+            let scannedCodes = new Set();
+
+            // Load saved configuration from local storage
+            const savedMachineId = localStorage.getItem('machineId');
+            const savedMachineToken = localStorage.getItem('machineToken');
+
+            // Function to show status messages
+            function showStatusMessage(message, isSuccess) {
+                const alertClass = isSuccess ? 'alert-success' : 'alert-danger';
+                const html = `<div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                                          ${message}
+                                          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                      </div>`;
+                document.getElementById('statusMessageContainer').innerHTML = html;
+            }
+
+            // Function to handle the actual attendance check-in
+            async function checkInUser(userCode) {
+                if (processingScan) return;
+                processingScan = true;
+
+                const machineId = machineIdInput.value;
+                const machineToken = machineTokenInput.value;
+
+                statusMessage.textContent = 'Processing...';
+
+                const tokenElement = document.getElementsByName("__RequestVerificationToken")[0];
+                if (!tokenElement) {
+                    showStatusMessage("Security token not found. Please reload the page.", false);
+                    console.error("RequestVerificationToken element not found.");
+                    return;
+                }
+
+                try {
+                    const response = await fetch('?handler=Scan', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': tokenElement.value
+                        },
+                        body: JSON.stringify({
+                            userCode: userCode,
+                            machineId: machineId,
+                            machineToken: machineToken
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    statusMessage.textContent = result.message;
+                    if (response.ok && result.success) {
+                        statusMessage.className = 'text-success lead';
+                    } else {
+                        statusMessage.className = 'text-danger lead';
+                    }
+
+                } catch (error) {
+                    statusMessage.textContent = 'An error occurred. Check network connection.';
+                    statusMessage.className = 'text-danger lead';
+                    console.error('API Error:', error);
+                } finally {
+                    processingScan = false;
+                    setTimeout(() => {
+                        scannedCodes.delete(userCode);
+                        statusMessage.textContent = 'Please scan a user\'s QR code.';
+                        statusMessage.className = 'lead';
+                    }, 3000);
+                }
+            }
+
+            // Function to handle QR code scan success
+            function onScanSuccess(decodedText, decodedResult) {
+                if (scannedCodes.has(decodedText)) {
+                    return;
+                }
+                scannedCodes.add(decodedText);
+
+                checkInUser(decodedText);
+            }
+
+            // Function to handle QR code scan for configuration
+            function onConfigScanSuccess(decodedText) {
+                html5QrCode.stop().then(() => {
+                    manualConfigSection.style.display = 'block';
+                    scannerSection.style.display = 'none';
+                    try {
+                        const config = JSON.parse(decodedText);
+                        if (config.machineId && config.machineToken) {
+                            machineIdInput.value = config.machineId;
+                            machineTokenInput.value = config.machineToken;
+                            showStatusMessage("Configuration loaded from QR code. Press 'Save Configuration' to save locally.", true);
+                        } else {
+                            showStatusMessage("Invalid QR code format. Please scan the correct machine configuration QR code.", false);
+                        }
+                    } catch (e) {
+                        showStatusMessage("Invalid QR code data. Please scan the correct machine configuration QR code.", false);
+                    }
+                }).catch(err => {
+                    console.error("Error stopping scanner:", err);
+                });
+            }
+
+            // Function to start the scanner
+            function startScanner(onSuccessCallback, targetId = "reader") {
+                if (html5QrCode && html5QrCode.isScanning) {
+                    html5QrCode.stop().catch(err => console.error("Error stopping previous scanner:", err));
+                }
+                html5QrCode = new Html5Qrcode(targetId);
+
+                const qrCodeConfig = {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    supportedScanFormats: [Html5QrcodeSupportedFormats.QR_CODE]
+                };
+
+                html5QrCode.start({ facingMode: "environment" }, qrCodeConfig, onSuccessCallback, (errorMessage) => {
+                    // Optional error callback. Can be ignored to prevent continuous updates.
+                }).catch((err) => {
+                    statusMessage.textContent = `Camera access error: ${err}. Please check permissions.`;
+                    statusMessage.className = 'text-danger lead';
+                    console.error("Camera start failed.", err);
+                });
+            }
+
+            // FUNCTION TO VERIFY AND START THE SCANNER
+            async function checkMachineAndStartScanner(machineId, machineToken) {
+                showStatusMessage("Verifying machine configuration...", true);
+
+                const tokenElement = document.getElementsByName("__RequestVerificationToken")[0];
+                if (!tokenElement) {
+                    showStatusMessage("Security token not found. Please reload the page.", false);
+                    console.error("RequestVerificationToken element not found.");
+                    return;
+                }
+
+                try {
+                    const response = await fetch('?handler=CheckMachine', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': tokenElement.value
+                        },
+                        body: JSON.stringify({
+                            machineId: machineId,
+                            machineToken: machineToken
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        localStorage.setItem('machineId', machineId);
+                        localStorage.setItem('machineToken', machineToken);
+                        showStatusMessage("Configuration saved and verified! Starting scanner...", true);
+                        manualConfigSection.style.display = 'none';
+                        scannerSection.style.display = 'block';
+                        pageSubtitle.textContent = `Ready to scan user QR codes for `;
+                        pageSubtitleSpan.textContent = `${result.name}.`;
+                        startScanner(onScanSuccess);
+                    } else {
+                        localStorage.removeItem('machineId');
+                        localStorage.removeItem('machineToken');
+                        showStatusMessage(`Error: ${result.message}`, false);
+                    }
+                } catch (error) {
+                    localStorage.removeItem('machineId');
+                    localStorage.removeItem('machineToken');
+                    showStatusMessage("An unexpected error occurred. Please try again.", false);
+                    console.error('API Error:', error);
+                }
+            }
+
+            // Event listeners
+            saveConfigBtn.addEventListener('click', function () {
+                const machineId = machineIdInput.value;
+                const machineToken = machineTokenInput.value;
+
+                if (machineId && machineToken) {
+                    checkMachineAndStartScanner(machineId, machineToken);
+                } else {
+                    showStatusMessage("Please enter both Machine ID and Token.", false);
+                }
+            });
+
+            scanQrConfigBtn.addEventListener('click', function () {
+                manualConfigSection.style.display = 'none';
+                scannerSection.style.display = 'block';
+                startScanner(onConfigScanSuccess);
+            });
+
+            // Fullscreen button logic
+            fullscreenBtn.addEventListener('click', function () {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                    document.body.classList.remove('fullscreen-mode');
+                } else {
+                    document.documentElement.requestFullscreen();
+                    document.body.classList.add('fullscreen-mode');
+                }
+            });
+
+            // Listen for the 'fullscreenchange' event to handle changes made by the user (like pressing Escape)
+            document.addEventListener('fullscreenchange', function () {
+                if (document.fullscreenElement) {
+                    // Full-screen mode is active
+                    document.body.classList.add('fullscreen-mode');
+                } else {
+                    // Full-screen mode is inactive
+                    document.body.classList.remove('fullscreen-mode');
+                }
+            });
+
+            // FULLSCREEN BUTTON LOGIC
+            fullscreenBtn.addEventListener('click', function () {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else {
+                    document.documentElement.requestFullscreen();
+                }
+            });
+
+            // Reset button logic
+            resetBtn.addEventListener('click', function () {
+                if (confirm("Are you sure you want to reset the machine configuration? This will clear all saved data.")) {
+                    localStorage.removeItem('machineId');
+                    localStorage.removeItem('machineToken');
+                    if (html5QrCode && html5QrCode.isScanning) {
+                        html5QrCode.stop().then(() => {
+                            location.reload(); // Reload the page to reset
+                        }).catch(err => {
+                            console.error("Error stopping scanner on reset:", err);
+                            location.reload();
+                        });
+                    } else {
+                        location.reload();
+                    }
+                }
+            });
+
+            // Initial check to determine which section to display
+            if (savedMachineId && savedMachineToken) {
+                machineIdInput.value = savedMachineId;
+                machineTokenInput.value = savedMachineToken;
+                // Verify the saved data with the backend
+                checkMachineAndStartScanner(savedMachineId, savedMachineToken);
+            } else {
+                manualConfigSection.style.display = 'block';
+                scannerSection.style.display = 'none';
+            }
+
+        });
+    </script>
+}

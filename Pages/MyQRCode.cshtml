@@ -1,0 +1,40 @@
+﻿@page
+@model personal_attendanse_system.Pages.MyQRCodeModel
+@{
+    ViewData["Title"] = "My QR Code";
+}
+
+<div class="container mt-5 text-center">
+    <h1 class="mb-4">Your Personal QR Code</h1>
+    <p class="lead text-muted">This unique code identifies you in the attendance system. Show it to a scanner to register your attendance.</p>
+
+    <div class="card shadow-sm mx-auto" style="max-width: 400px;">
+        <div class="card-body">
+            @if (!string.IsNullOrEmpty(Model.UserQrCodeData))
+            {
+                <h4 class="card-title">Your Code is Ready!</h4>
+                <div class="mt-4">
+                    <img src="@Model.QrCodeImage" alt="Your Personal QR Code" class="img-fluid border p-2" />
+                </div>
+                <p class="mt-3">
+                    <small class="text-muted">You can save this image to your phone or print it.</small>
+                </p>
+            }
+            else
+            {
+                <h4 class="card-title">No QR Code Found</h4>
+                <p class="text-danger">Please generate your personal QR code.</p>
+            }
+
+            <form method="post" class="mt-4">
+                <button type="submit" class="btn btn-primary">
+                    Generate/Update QR Code
+                </button>
+            </form>
+            
+            <p class="mt-3 text-muted">
+                <small>Generating a new code will replace your old one.</small>
+            </p>
+        </div>
+    </div>
+</div>

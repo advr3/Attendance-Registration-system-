@@ -1,0 +1,460 @@
+﻿@page "{GroupId:long}"
+@model personal_attendanse_system.Pages.Group.ManageStaffsModel
+@{
+    ViewData["Title"] = "Manage Staffs";
+}
+
+<div class="container mt-4">
+    <div id="status-message-container">
+        <partial name="_StatusMessage" model="Model.StatusMessage" />
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="m-0">Manage Staffs for @Model.Group.name</h2>
+        <div>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStaffsModal">Add Staff</button>
+            <a asp-page="/Groups/Manage" class="btn btn-secondary">Back</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Current Staffs</h4>
+                    <form>
+                        <div class="input-group">
+                            <input type="text" id="searchQuery" class="form-control" placeholder="Search for staff...">
+                            <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                                <i class="bi bi-search"></i> Search
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-body" id="staff-list-container">
+                    @if (Model.Staffs != null && Model.Staffs.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Joined On</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var staff in Model.Staffs)
+                                    {
+                                        <tr class="staff-row" data-staff-name="@staff.User.UserName" id="staff-row-@staff.UserId">
+                                            <td>@staff.User.UserName</td>
+                                            <td>@staff.User.Email</td>
+                                            <td>@staff.joinDate.ToLocalTime().ToString("g")</td>
+                                            <td>
+                                                <button type="button" class="btn btn-outline-info btn-sm view-staff-btn"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#viewStaffModal"
+                                                        data-group-id="@staff.GroupId"
+                                                        data-user-id="@staff.UserId"
+                                                        data-user-name="@staff.User.UserName"
+                                                        data-user-email="@staff.User.Email"
+                                                        data-join-date="@staff.joinDate.ToLocalTime().ToString("f")"
+                                                        data-create-scheduled="@staff.canCreateScheduledLink.ToString()"
+                                                        data-update-scheduled="@staff.canUpdateScheduledLink.ToString()"
+                                                        data-delete-scheduled="@staff.canDeleteScheduledLink.ToString()"
+                                                        data-create-link="@staff.canCreateLink.ToString()"
+                                                        data-update-link="@staff.canUpdateLink.ToString()"
+                                                        data-delete-link="@staff.canDeleteLink.ToString()">
+                                                    View
+                                                </button>
+                                                <button type="button" class="btn btn-danger btn-sm remove-staff-btn" data-user-id="@staff.UserId">Remove</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted" id="no-staffs-message">There are no staffs in this group yet.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="addStaffsModal" class="modal fade" tabindex="-1" aria-labelledby="addStaffsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="addStaffsModalLabel">Add Staffs to @Model.Group.name</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="staffTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button" role="tab" aria-controls="manual" aria-selected="true">Manually</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="qrcode-tab" data-bs-toggle="tab" data-bs-target="#qrcode" type="button" role="tab" aria-controls="qrcode" aria-selected="false">By QR Code</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="staffTabsContent">
+                    <div class="tab-pane fade show active" id="manual" role="tabpanel" aria-labelledby="manual-tab">
+                        <div class="card shadow-sm border-0 mt-3">
+                            <div class="card-body">
+                                <form id="addStaffForm">
+                                    <div class="mb-3">
+                                        <label for="userIdentifier" class="form-label">Staff Email</label>
+                                        <input type="text" class="form-control" id="userIdentifier" name="userIdentifier" required placeholder="Enter email" />
+                                    </div>
+                                    <button type="submit" class="btn btn-success">Add Staff</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="qrcode" role="tabpanel" aria-labelledby="qrcode-tab">
+                        <div class="card shadow-sm border-0 mt-3">
+                            <div class="card-body text-center">
+                                @if (!string.IsNullOrEmpty(Model.JoinQrCodeUrl))
+                                {
+                                    <p>Share this QR code with users to let them join this group.</p>
+                                    <div class="mb-3">
+                                        <img src="@Model.JoinQrCodeImage" alt="Group Join QR Code" class="img-fluid border p-2" />
+                                    </div>
+                                    <p class="text-muted"><small>Link expires in 24 hours.</small></p>
+                                }
+                                else
+                                {
+                                    <p>Generate a QR code to allow users to join this group.</p>
+                                    <form method="post" asp-page-handler="GenerateJoinQrCode">
+                                        <input type="hidden" asp-for="GroupId" />
+                                        <button type="submit" class="btn btn-success">Generate Join QR Code</button>
+                                    </form>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="viewStaffModal" tabindex="-1" aria-labelledby="viewStaffModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="viewStaffModalLabel">Edit Staff Permissions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="updateStaffPermissionsForm">
+                    <input type="hidden" name="GroupId" id="modalGroupId" value="@Model.GroupId" />
+                    <input type="hidden" name="UserId" id="modalUserId" />
+
+                    <p><strong>Username:</strong> <span id="modalUsername"></span></p>
+                    <p><strong>Email:</strong> <span id="modalUseremail"></span></p>
+                    <p><strong>Joined On:</strong> <span id="modalJoinDate"></span></p>
+                    <hr />
+
+                    <h6>Scheduled Links Permissions:</h6>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="canCreateScheduledLink" name="canCreateScheduledLink"/>
+                        <label class="form-check-label" for="canCreateScheduledLink">Can Create</label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="canUpdateScheduledLink" name="canUpdateScheduledLink"/>
+                        <label class="form-check-label" for="canUpdateScheduledLink">Can Update</label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="canDeleteScheduledLink" name="canDeleteScheduledLink"/>
+                        <label class="form-check-label" for="canDeleteScheduledLink">Can Delete</label>
+                    </div>
+
+                    <h6 class="mt-4">Links Permissions:</h6>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="canCreateLink" name="canCreateLink"/>
+                        <label class="form-check-label" for="canCreateLink">Can Create</label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="canUpdateLink" name="canUpdateLink"/>
+                        <label class="form-check-label" for="canUpdateLink">Can Update</label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="canDeleteLink" name="canDeleteLink"/>
+                        <label class="form-check-label" for="canDeleteLink">Can Delete</label>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Apply Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function showStatusMessage(message, isSuccess) {
+            const container = document.getElementById('status-message-container');
+            const alertClass = isSuccess ? 'alert-success' : 'alert-danger';
+            container.innerHTML = `<div class="alert ${alertClass} alert-dismissible fade show" role="alert">${message}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`;
+        }
+
+        function createStaffRowHtml(staff) {
+            const joinedDate = new Date().toLocaleString();
+            return `<tr class="staff-row" data-staff-name="${staff.userName}" id="staff-row-${staff.id}">
+                        <td>${staff.userName}</td>
+                        <td>${staff.email}</td>
+                        <td>${joinedDate}</td>
+                        <td>
+                            <button type="button" class="btn btn-outline-info btn-sm view-staff-btn"
+                                data-bs-toggle="modal"
+                                data-bs-target="#viewStaffModal"
+                                data-group-id="@Model.GroupId"
+                                data-user-id="${staff.id}"
+                                data-user-name="${staff.userName}"
+                                data-user-email="${staff.email}"
+                                data-join-date="${joinedDate}"
+                                data-create-scheduled="false"
+                                data-update-scheduled="false"
+                                data-delete-scheduled="false"
+                                data-create-link="false"
+                                data-update-link="false"
+                                data-delete-link="false">
+                                View
+                            </button>
+                            <button type="button" class="btn btn-danger btn-sm remove-staff-btn" data-user-id="${staff.id}">Remove</button>
+                        </td>
+                    </tr>`;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // Search functionality
+            const searchInput = document.getElementById('searchQuery');
+            function filterStaffs() {
+                const searchValue = searchInput.value.toLowerCase();
+                document.querySelectorAll('.staff-row').forEach(row => {
+                    const staffName = row.getAttribute('data-staff-name');
+                    if (staffName.includes(searchValue)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+            searchInput.addEventListener('keyup', filterStaffs);
+            document.getElementById('searchButton').addEventListener('click', filterStaffs);
+
+            // Add Staff via AJAX
+            const addStaffForm = document.getElementById('addStaffForm');
+            if (addStaffForm) {
+                addStaffForm.addEventListener('submit', async function (event) {
+                    event.preventDefault();
+                    const userIdentifier = document.getElementById('userIdentifier').value;
+                    const requestBody = { userIdentifier: userIdentifier };
+
+                    try {
+                        const response = await fetch('?handler=AddStaff', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                            },
+                            body: JSON.stringify(requestBody)
+                        });
+
+                        const result = await response.json();
+                        if (result.success) {
+                            showStatusMessage(result.message, true);
+                            const tableBody = document.querySelector('#staff-list-container table tbody');
+                            const newRowHtml = createStaffRowHtml(result.member);
+                            if (tableBody) {
+                                tableBody.insertAdjacentHTML('beforeend', newRowHtml);
+                            } else {
+                                const staffsListContainer = document.getElementById('staff-list-container');
+                                staffsListContainer.innerHTML = `
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr><th>Username</th><th>Email</th><th>Joined On</th><th>Actions</th></tr>
+                                            </thead>
+                                            <tbody>${newRowHtml}</tbody>
+                                        </table>
+                                    </div>`;
+                                const noStaffsMessage = document.getElementById('no-staffs-message');
+                                if (noStaffsMessage) {
+                                    noStaffsMessage.style.display = 'none';
+                                }
+                            }
+                            document.getElementById('addStaffsModal').querySelector('.btn-close').click();
+                        } else {
+                            showStatusMessage(result.message, false);
+                        }
+                    } catch (error) {
+                        showStatusMessage("An error occurred. Please try again.", false);
+                        console.error('Error adding staff:', error);
+                    }
+                });
+            }
+
+            // Remove Staff via AJAX
+            document.querySelector('#staff-list-container').addEventListener('click', async function (event) {
+                if (event.target.classList.contains('remove-staff-btn')) {
+                    const button = event.target;
+                    const userIdToRemove = button.dataset.userId;
+
+                    if (confirm('Are you sure you want to remove this staff?')) {
+                        try {
+                            const response = await fetch('?handler=RemoveStaff', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                                },
+                                body: JSON.stringify({ userIdToRemove: userIdToRemove })
+                            });
+
+                            const result = await response.json();
+                            if (result.success) {
+                                showStatusMessage(result.message, true);
+                                const staffRow = document.getElementById(`staff-row-${result.userId}`);
+                                if (staffRow) {
+                                    staffRow.remove();
+                                }
+                                const tableBody = document.querySelector('#staff-list-container table tbody');
+                                if (tableBody && tableBody.children.length === 0) {
+                                    document.getElementById('staff-list-container').innerHTML = `<p class="text-muted" id="no-staffs-message">There are no staffs in this group yet.</p>`;
+                                }
+                            } else {
+                                showStatusMessage(result.message, false);
+                            }
+                        } catch (error) {
+                            showStatusMessage("An error occurred while removing the staff. Please try again.", false);
+                            console.error('Error removing staff:', error);
+                        }
+                    }
+                }
+            });
+
+            // Update Staff Permissions via AJAX
+            const updateStaffPermissionsForm = document.getElementById('updateStaffPermissionsForm');
+            if (updateStaffPermissionsForm) {
+                updateStaffPermissionsForm.addEventListener('submit', async function (event) {
+                    event.preventDefault();
+            
+                    const groupId = document.getElementById('modalGroupId').value;
+                    const userId = document.getElementById('modalUserId').value;
+            
+                    const payload = {
+                        GroupId: groupId,
+                        UserId: userId,
+                        canCreateScheduledLink: document.getElementById('canCreateScheduledLink').checked,
+                        canUpdateScheduledLink: document.getElementById('canUpdateScheduledLink').checked,
+                        canDeleteScheduledLink: document.getElementById('canDeleteScheduledLink').checked,
+                        canCreateLink: document.getElementById('canCreateLink').checked,
+                        canUpdateLink: document.getElementById('canUpdateLink').checked,
+                        canDeleteLink: document.getElementById('canDeleteLink').checked
+                    };
+            
+                    try {
+                        const response = await fetch('?handler=UpdateStaffPermissions', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                            },
+                            body: JSON.stringify(payload)
+                        });
+            
+                        const result = await response.json();
+                        if (result.success) {
+                            showStatusMessage(result.message, true);
+            
+                            // Find the staff row and update the data attributes of its "View" button
+                            const staffRow = document.getElementById(`staff-row-${userId}`);
+                            if (staffRow) {
+                                const viewButton = staffRow.querySelector('.view-staff-btn');
+                                if (viewButton) {
+                                    viewButton.setAttribute('data-create-scheduled', payload.canCreateScheduledLink.toString());
+                                    viewButton.setAttribute('data-update-scheduled', payload.canUpdateScheduledLink.toString());
+                                    viewButton.setAttribute('data-delete-scheduled', payload.canDeleteScheduledLink.toString());
+                                    viewButton.setAttribute('data-create-link', payload.canCreateLink.toString());
+                                    viewButton.setAttribute('data-update-link', payload.canUpdateLink.toString());
+                                    viewButton.setAttribute('data-delete-link', payload.canDeleteLink.toString());
+                                }
+                            }
+            
+                            document.getElementById('viewStaffModal').querySelector('.btn-close').click(); // Close modal
+                        } else {
+                            showStatusMessage(result.message, false);
+                        }
+                    } catch (error) {
+                        showStatusMessage("An error occurred while updating permissions. Please try again.", false);
+                        console.error('Error updating permissions:', error);
+                    }
+                });
+            }
+
+            // Populate modal with staff data
+            let viewStaffModal = document.getElementById('viewStaffModal');
+            viewStaffModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const userId = button.getAttribute('data-user-id');
+                const staffData = {
+                    groupId: button.getAttribute('data-group-id'),
+                    userId: userId,
+                    userName: button.getAttribute('data-user-name'),
+                    userEmail: button.getAttribute('data-user-email'),
+                    joinDate: button.getAttribute('data-join-date'),
+                    canCreateScheduled: button.getAttribute('data-create-scheduled') === 'true',
+                    canUpdateScheduled: button.getAttribute('data-update-scheduled') === 'true',
+                    canDeleteScheduled: button.getAttribute('data-delete-scheduled') === 'true',
+                    canCreateLink: button.getAttribute('data-create-link') === 'true',
+                    canUpdateLink: button.getAttribute('data-update-link') === 'true',
+                    canDeleteLink: button.getAttribute('data-delete-link') === 'true'
+                };
+
+                document.getElementById('modalGroupId').value = staffData.groupId;
+                document.getElementById('modalUserId').value = staffData.userId;
+                document.getElementById('modalUsername').textContent = staffData.userName;
+                document.getElementById('modalUseremail').textContent = staffData.userEmail;
+                document.getElementById('modalJoinDate').textContent = staffData.joinDate;
+
+                document.getElementById('canCreateScheduledLink').checked = staffData.canCreateScheduled;
+                document.getElementById('canUpdateScheduledLink').checked = staffData.canUpdateScheduled;
+                document.getElementById('canDeleteScheduledLink').checked = staffData.canDeleteScheduled;
+                document.getElementById('canCreateLink').checked = staffData.canCreateLink;
+                document.getElementById('canUpdateLink').checked = staffData.canUpdateLink;
+                document.getElementById('canDeleteLink').checked = staffData.canDeleteLink;
+
+                
+                document.getElementById('canCreateScheduledLink').value = staffData.canCreateScheduled;
+                document.getElementById('canUpdateScheduledLink').value = staffData.canUpdateScheduled;
+                document.getElementById('canDeleteScheduledLink').value = staffData.canDeleteScheduled;
+                document.getElementById('canCreateLink').value = staffData.canCreateLink;
+                document.getElementById('canUpdateLink').value = staffData.canUpdateLink;
+                document.getElementById('canDeleteLink').value = staffData.canDeleteLink;
+
+                /* 
+                console.log("called viewStaffModal");
+
+                console.log(`staffData.canCreateScheduled ${staffData.canCreateScheduled}`);
+                console.log(`staffData.canUpdateScheduled ${staffData.canUpdateScheduled}`);
+                console.log(`staffData.canDeleteScheduled ${staffData.canDeleteScheduled}`);
+
+                console.log(`staffData.canCreateLink ${staffData.canCreateLink}`);
+                console.log(`staffData.canUpdateLink ${staffData.canUpdateLink}`);
+                console.log(`staffData.canDeleteLink ${staffData.canDeleteLink}`);
+                */
+            });
+        });
+    </script>
+}
